@@ -1,0 +1,148 @@
+---
+title: "Dplyr"
+author: "Rob Linger"
+date: "2/17/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+```{r setup, eval=FALSE}
+
+install.packages("nycflights13")
+```
+
+```{r}
+library(nycflights13)
+library(dplyr)
+
+```
+
+
+## The Data:
+
+https://cran.r-project.org/web/packages/nycflights13/nycflights13.pdf
+
+Airline on-time data for all flights departing NYC in 2013. Also includes useful 'metadata' on airlines, airports, weather, and planes.
+
+
+
+```{r, eval=FALSE}
+
+dim(flights)
+
+#The data in this package loads in as a tibble
+
+flights   #A tibble
+
+#We will convert this to a dataframe to demonstrate base R functionality 
+
+flights_dataframe <- as.data.frame(flights) #A dataframe
+
+```
+
+## What is dplyr and why do we care?
+
+dplyr is defined as "a grammer of data manipulation" .... what?
+
+To me, dplyr is tool that brings together concepts of R and SQL to simplifiy the syntaxt of data manipulation and analysis.  Funtions such as `filter`, `arrange`, `select`, `mutate`, `summarise`, and `sample_n`are introduced or improved by dplyr.  In this document we will first compare the syntax of dplyr v. base R for a handful of tasks. We will then look at work flows (pipes) and thier importance to code readability and memory management. Exciting stuff!
+
+More reading on dpylr: https://dplyr.tidyverse.org/
+
+### filter()
+
+```{r, eval=FALSE}
+
+filter(flights, month == 1, day == 1) #dplyr
+
+flights_dataframe[flights$month == 1 & flights$day == 1, ] #R
+
+```
+
+### arrange()
+
+```{r, eval=FALSE}
+
+arrange(flights, year, month, day) #dplyr
+
+flights_dataframe[order(flights_dataframe[,"year"],flights_dataframe[,"month"],flights_dataframe["day"]),] #R
+
+
+arrange(flights, desc(arr_delay)) #dplyr
+
+flights_dataframe[order(-flights_dataframe[,"arr_delay"]),] #R
+
+```
+
+### select()
+
+```{r, eval=FALSE}
+
+select(flights, year, month, day) #dplyr
+
+flights_dataframe[,c("year","month","day")] #R
+
+```
+
+### mutate()
+
+```{r, eval=FALSE}
+
+mutate(flights,
+  gain = arr_delay - dep_delay,
+  speed = distance / air_time * 60) #dplyr
+
+transform(flights_dataframe,
+          gain = flights_dataframe$arr_delay -flights_dataframe$dep_delay,
+          speed = flights_dataframe$distance / flights_dataframe$air_time * 60) #R
+
+```
+
+### summarise()
+
+```{r, eval=FALSE}
+
+summarise(flights,
+  delay = mean(dep_delay, na.rm = TRUE)) #dplyr
+
+aggregate(dep_delay ~ 1,
+          data = flights_dataframe,
+          FUN = function(x) mean(x) ) #R
+
+```
+
+### sample_n()
+
+```{r, eval=FALSE}
+
+sample_n(flights, 10, replace = TRUE) #dplyr
+
+flights_dataframe[sample(1:nrow(flights_dataframe), 10, replace=TRUE),] #R
+
+```
+
+
+## Let's talk about pipes.
+
+Pipes are tools within programming that allow us to pass the output of a function as input to the next function. This functionality on it's own is a part of the `magrittr` library, but it is close companion of dplyr. 
+
+
+Here is an example of using pipes to create a workflow to give us the days of each month in which the mean arrival delay OR the mean departure delay was greater than 30 minutes, grouped by year, then month, then day.
+
+```{r }
+flights %>%
+  group_by(year, month, day) %>%
+  select(arr_delay, dep_delay) %>%
+  summarise(
+    arr = mean(arr_delay, na.rm = TRUE),
+    dep = mean(dep_delay, na.rm = TRUE)
+  ) %>%
+  filter(arr > 30 | dep > 30)
+
+```
+
+Our output is generated without utilizing local memory to store intermediate variables. 
+
+I will still use dplyr here, but no pipes, what happens to the local environment?
