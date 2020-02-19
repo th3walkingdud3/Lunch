@@ -131,7 +131,7 @@ Pipes are tools within programming that allow us to pass the output of a functio
 
 Here is an example of using pipes to create a workflow to give us the days of each month in which the mean arrival delay OR the mean departure delay was greater than 30 minutes, grouped by year, then month, then day.
 
-```{r }
+```{r, eval=FALSE}
 flights %>%
   group_by(year, month, day) %>%
   select(arr_delay, dep_delay) %>%
@@ -146,3 +146,15 @@ flights %>%
 Our output is generated without utilizing local memory to store intermediate variables. 
 
 I will still use dplyr here, but no pipes, what happens to the local environment?
+
+```{r, eval=FALSE}
+
+narrowed_list <- select(flights, year, month, day, arr_delay, dep_delay)
+
+grouped_list <- group_by(narrowed_list, year, month, day)
+
+summarised_list <- summarise(grouped_list, arr = mean(arr_delay, na.rm = TRUE), dep = mean(dep_delay, na.rm = TRUE))
+
+(filtered_list <- filter(summarised_list, arr > 30 | dep > 30))
+
+```
