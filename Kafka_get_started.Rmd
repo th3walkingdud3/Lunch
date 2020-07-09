@@ -1,0 +1,71 @@
+---
+title: "Kafka"
+author: "Rob Linger"
+date: "6/8/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(sparklyr)
+```
+
+##Run the following code in the Terminal Tab
+```{bash}
+#this will list existing topics in kafka
+kafka-topics --list --zookeeper gbew3001:2181
+
+#this will give you a prompt ">" from which you can manually pass data into a kafka topic, in this case 'topic1'
+kafka-console-producer --broker-list gbew3001:9092,gbew3002:9092,gbew3003:9092 --topic topic1
+
+#this will retrieve all data in the listed topic, including things added after the command is run
+kafka-console-consumer --bootstrap-server gbew3001:9092 --topic topic2 --from-beginning
+```
+
+Information on Cloudera Kafak install:
+https://docs.cloudera.com/documentation/enterprise/6/6.3/topics/kafka_clients.html
+
+```{r}
+
+config <- spark_config()
+Sys.setenv(SPARK_HOME = "/opt/cloudera/parcels/CDH/lib/spark/")
+
+# The following package is dependent to Spark version, for Spark 2.3.2:
+config$sparklyr.shell.packages <- "org.apache.spark:spark-sql-kafka-0-10_2.11:2.3.2"
+
+sc <- spark_connect(
+    master = "yarn-client",
+    source = "/opt/cloudera/parcels/CDH/lib/spark/bin/spark-submit",
+    version="2.4.0",
+    packages = "kafka")
+
+read_options <- list(kafka.bootstrap.servers = "gbew3001:9092", subscribe = "topic1",value.deserializer="org.apache.kafka.common.serialization.StringDeserializer")
+
+
+write_options <- list(kafka.bootstrap.servers = "gbew3001:9092", topic = "topic2")
+
+
+
+
+stream <- stream_read_kafka(sc, options = read_options) %>% 
+  
+  mutate_all(.funs = as.character) %>%
+  #do work
+stream_write_memory(name = "new_sdf2")
+  
+#from here, if you go to the terminal tab and run the producer, then add items, they will pass to kafka, then to the 'stream', then converted to charaters, then written to "new_sdf2" in spark. NOTE: to see the data in the spark table, you must refresh the browser then click on the table icon next to the sdf name in the connections tab.
+
+
+#Used to write back to kafka using the write_options above.
+#stream_write_kafka(options = write_options)
+
+stream_stop(stream)
+
+spark_disconnect(sc)
+```
